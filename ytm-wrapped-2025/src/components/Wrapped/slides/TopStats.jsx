@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, Music, Zap, Calendar, TrendingUp, BarChart3, Activity, Trophy } from 'lucide-react';
+import { Clock, Music, Zap, Calendar, TrendingUp, Activity, Trophy } from 'lucide-react';
 import { fetchArtistImage } from '../../../utils/musicApi';
 
 const TopStats = ({ data }) => {
@@ -7,7 +7,7 @@ const TopStats = ({ data }) => {
 
   useEffect(() => {
     const loadTheme = async () => {
-      if (data.topArtists[0]) {
+      if (data.topArtists && data.topArtists[0]) {
         const url = await fetchArtistImage(data.topArtists[0].name);
         setBgImage(url);
       }
@@ -21,31 +21,57 @@ const TopStats = ({ data }) => {
   const hourly = data.hourlyActivity || new Array(24).fill(0);
   const monthly = data.monthlyStats || new Array(12).fill({ count: 0, month: '' });
   const calendar = data.calendarData || {};
+  
   const maxHourly = Math.max(...hourly, 1);
   const maxMonthly = Math.max(...monthly.map(m => m.count), 1);
 
   const renderHeatmap = () => {
-    const weeks = 52;
+    const weeks = 53; // Covers the full year
     const days = 7;
     let heatmapGrid = [];
+    
+    // Get values for coloring scale
     const values = Object.values(calendar);
     const maxCal = Math.max(...values, 1);
+
+    // START DATE: January 1, 2025 (Matches your processor's Year)
+    // We set it to UTC to match the processor's output keys
+    const startDate = new Date('2025-01-01T00:00:00Z');
 
     for (let w = 0; w < weeks; w++) {
       let weekColumn = [];
       for (let d = 0; d < days; d++) {
-        const valIndex = (w * 7) + d;
-        const count = valIndex < values.length ? values[valIndex] : 0;
+        // Calculate the date for this specific cell
+        const dayOffset = (w * 7) + d;
+        const currentDate = new Date(startDate);
+        currentDate.setUTCDate(startDate.getUTCDate() + dayOffset);
+
+        // Stop if we roll over into the next year (optional, keeps grid clean)
+        if (currentDate.getUTCFullYear() > 2025) {
+             weekColumn.push(<div key={`${w}-${d}`} className="w-2 h-2 md:w-3 md:h-3"></div>);
+             continue;
+        }
+
+        // Format to YYYY-MM-DD to match the keys from processor.js
+        const dateKey = currentDate.toISOString().split('T')[0];
+        const count = calendar[dateKey] || 0;
         
-        // Heatmap Colors - Brighter for contrast
+        // Heatmap Logic
         let color = "bg-white/5"; 
-        if (count > 0) color = "bg-green-500/40";
-        if (count > maxCal * 0.25) color = "bg-green-500/60";
+        if (count > 0) color = "bg-green-900/40"; 
+        if (count > maxCal * 0.25) color = "bg-green-700/60";
         if (count > maxCal * 0.5) color = "bg-green-500/80";
-        if (count > maxCal * 0.75) color = "bg-green-400";
+        if (count >= maxCal * 0.8) color = "bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.5)]";
         
+        // Tooltip Format
+        const dateStr = currentDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
         weekColumn.push(
-            <div key={d} className={`w-2 h-2 md:w-3 md:h-3 rounded-sm ${color}`} title={`${count} plays`}></div>
+            <div 
+              key={`${w}-${d}`} 
+              className={`w-2 h-2 md:w-3 md:h-3 rounded-sm transition-all duration-300 hover:scale-150 hover:z-50 cursor-help ${color}`} 
+              title={`${dateStr}: ${count} plays`}
+            ></div>
         );
       }
       heatmapGrid.push(<div key={w} className="flex flex-col gap-1">{weekColumn}</div>);
@@ -60,13 +86,12 @@ const TopStats = ({ data }) => {
       <div className="absolute inset-0 z-0">
          {bgImage ? (
             <div 
-                className="absolute inset-0 bg-cover bg-center opacity-60 blur-[60px] scale-110"
-                style={{ backgroundImage: `url(${bgImage})` }}
+               className="absolute inset-0 bg-cover bg-center opacity-60 blur-[60px] scale-110"
+               style={{ backgroundImage: `url(${bgImage})` }}
             />
          ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[#1f1f1f] to-black" />
          )}
-         {/* Lighter Overlay so background is visible */}
          <div className="absolute inset-0 bg-black/40 z-10"></div>
       </div>
 
@@ -76,7 +101,6 @@ const TopStats = ({ data }) => {
         {/* HEADER */}
         <div className="flex items-end justify-between mb-6 border-b border-white/10 pb-4 flex-shrink-0">
           <div className="flex items-center gap-4">
-             {/* Avatar */}
              <div className="relative">
                 <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center shadow-lg border border-white/20">
                     <Trophy size={20} className="text-yellow-400" />
@@ -108,9 +132,7 @@ const TopStats = ({ data }) => {
         {/* DASHBOARD GRID */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-20">
 
-          {/* --- KPI CARDS (FROSTED GLASS) --- */}
-          {/* Changed bg-black/40 to bg-white/5 for visibility */}
-          
+          {/* KPI CARDS */}
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-xl flex flex-col justify-between hover:bg-white/10 transition-colors shadow-lg">
               <div className="flex justify-between text-white/60 mb-2">
                   <Clock size={16} />
@@ -146,9 +168,7 @@ const TopStats = ({ data }) => {
               <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-yellow-500/20 to-transparent group-hover:from-yellow-500/30 transition-all"></div>
           </div>
 
-
-          {/* --- CHARTS (FROSTED GLASS) --- */}
-
+          {/* CHARTS */}
           <div className="md:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-xl h-64 flex flex-col shadow-lg">
               <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xs font-bold text-white/80 uppercase flex items-center gap-2">
@@ -201,8 +221,7 @@ const TopStats = ({ data }) => {
               </div>
           </div>
 
-          {/* --- HEATMAP (FROSTED GLASS) --- */}
-          
+          {/* HEATMAP */}
           <div className="md:col-span-4 bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-xl overflow-x-auto shadow-lg">
                <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xs font-bold text-white/80 uppercase flex items-center gap-2">
@@ -210,10 +229,10 @@ const TopStats = ({ data }) => {
                   </h3>
                   <div className="text-[9px] text-white/40 flex items-center gap-1">
                       <span>Less</span>
-                      <div className="w-2 h-2 bg-white/10"></div>
-                      <div className="w-2 h-2 bg-green-500/30"></div>
-                      <div className="w-2 h-2 bg-green-500/70"></div>
-                      <div className="w-2 h-2 bg-green-400"></div>
+                      <div className="w-2 h-2 bg-green-900/40 rounded-sm"></div>
+                      <div className="w-2 h-2 bg-green-700/60 rounded-sm"></div>
+                      <div className="w-2 h-2 bg-green-500/80 rounded-sm"></div>
+                      <div className="w-2 h-2 bg-green-400 rounded-sm"></div>
                       <span>More</span>
                   </div>
               </div>

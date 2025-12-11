@@ -44,10 +44,10 @@ const analyzeData = (data) => {
   const hourlyActivity = new Array(24).fill(0); // 0-23 hours
   
   // NEW: Monthly Breakdown (Jan-Dec)
-  // Structure: [ { count: 0, artists: { 'Name': 5 } }, ... ]
   const monthlyRaw = new Array(12).fill(0).map(() => ({ count: 0, artists: {} }));
 
   // NEW: Calendar Heatmap Data
+  // Keys will be YYYY-MM-DD
   const calendarData = {}; 
 
   data.forEach((entry) => {
@@ -102,6 +102,8 @@ const analyzeData = (data) => {
     currentMonthArtists[artist] = (currentMonthArtists[artist] || 0) + 1;
 
     // B. Calendar Data (YYYY-MM-DD)
+    // We use ISO string date part to get strict YYYY-MM-DD format
+    // This matches the key generation logic in TopStats.jsx
     const dayKey = date.toISOString().split('T')[0];
     calendarData[dayKey] = (calendarData[dayKey] || 0) + 1;
   });
@@ -120,7 +122,7 @@ const analyzeData = (data) => {
     });
 
     return { 
-      month: new Date(0, index).toLocaleString('default', { month: 'short' }), 
+      month: new Date(YEAR, index).toLocaleString('default', { month: 'short' }), 
       count: m.count, 
       topArtist 
     };
@@ -139,7 +141,7 @@ const analyzeData = (data) => {
 
   // 5. DETERMINE "VIBE" (Time of Day)
   const maxHour = hourlyActivity.indexOf(Math.max(...hourlyActivity));
-  let timeOfDay = "Night Owl 🦉";
+  let timeOfDay = "Night Owl";
   if (maxHour >= 5 && maxHour < 12) timeOfDay = "Morning Bird";
   if (maxHour >= 12 && maxHour < 17) timeOfDay = "Afternoon Vibe";
   if (maxHour >= 17 && maxHour < 22) timeOfDay = "Evening Chiller";
@@ -152,7 +154,7 @@ const analyzeData = (data) => {
     topArtists,
     hourlyActivity,
     timeOfDay,
-    monthlyStats, // Added for Trends Tab
-    calendarData  // Added for Heatmap
+    monthlyStats, 
+    calendarData
   };
 };
